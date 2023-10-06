@@ -37,9 +37,9 @@ procedure Simulation is
     -- In the Fridge, ingredients are assemblied into an assembly
     task type Fridge_Task_Type is
         -- Accept a ingredient to the storage provided there is a room for it
-        entry Take (Ingredient : in Ingredient_Type; Number : in Natural);
+        entry Take (Ingredient : in Ingredient_Type; Number : in Natural; Accepted: out Boolean);
         -- Deliver an assembly provided there are enough ingredients for it
-        entry Deliver (Pizza : in Pizza_Type; Number : out Natural);
+        entry Deliver (Pizza : in Pizza_Type; Number : out Natural; Accepted: out Boolean);
     end Fridge_Task_Type;
 
     Supplier_Tasks : array (Ingredient_Type) of Supplier_Task_Type;
@@ -53,13 +53,15 @@ procedure Simulation is
     end Log;
 
     task body Supplier_Task_Type is
-        subtype ingrediention_Time_Range is Positive range 4 .. 6;
+        subtype ingrediention_Time_Range is Float range 4 .. 6;
         package Random_ingrediention is new Ada.Numerics.Discrete_Random
            (ingrediention_Time_Range);
         Generator           :
            Random_ingrediention.Generator;   --  generator liczb losowych
         Produced_Ingredient : Ingredient_Type;
         Counter             : Natural;
+		Accepted			: Boolean := False;
+		Retry_Delay			: constant := 1.0;
     begin
         accept Start (Ingredient : in Ingredient_Type) do
             Random_ingrediention.Reset
@@ -75,8 +77,12 @@ procedure Simulation is
                 "Produced ingredient " & To_String (Produced_Ingredient) &
                 " number " & To_String (Counter));
             -- Accept for storage
-            Fridge_Task.Take (Produced_Ingredient, Counter);
+			while not Accepted loop
+            	Fridge_Task.Take (Produced_Ingredient, Counter, Accepted);
+				delay Retry_Delay;
+			end loop;
             Counter := Counter + 1;
+			Accepted := False;
         end loop;
     end Supplier_Task_Type;
 
@@ -90,6 +96,7 @@ procedure Simulation is
         Client_Name     : Client_Type;
         Counter         : Natural;
         Pizza           : Pizza_Type;
+		Accepted		: Boolean;
     begin
         accept Start (Client : in Client_Type) do
             Random_Consumption.Reset (Time_Generator);   --  ustaw generator
@@ -103,14 +110,14 @@ procedure Simulation is
                    (Time_Generator)); --  simulate consumption
             Pizza := Random_Pizza.Random (Pizza_Generator);
             -- take an assembly for consumption
-            Fridge_Task.Deliver (Pizza, Counter);
-            if Counter /= 0 then
+            Fridge_Task.Deliver (Pizza, Counter, Accepted);
+            if Accepted then
                 Log ("Client " & To_String (Client_Name),
                     "took pizza " & To_String (Pizza) & " number " &
                     To_String (Counter));
             else
                 Log ("Client " & To_String (Client_Name),
-                    "lacking ingredients for pizza " & To_String (Pizza));
+                    "Can't buy " & To_String (Pizza));
             end if;
         end loop;
     end Client_Task_Type;
@@ -227,7 +234,7 @@ procedure Simulation is
         loop
             select
                 accept Take
-                   (Ingredient : in Ingredient_Type; Number : in Natural)
+                   (Ingredient : in Ingredient_Type; Number : in Natural; Accepted : out Boolean)
                 do
                     if Can_Accept (Ingredient) then
                         Log ("Fridge",
@@ -236,17 +243,19 @@ procedure Simulation is
                         Storage (Ingredient)   := Storage (Ingredient) + 1;
                         Ingredients_In_Storage := Ingredients_In_Storage + 1;
                         Storage_Contents;
+						Accepted := True;
                     else
                         Log ("Fridge",
                             "Rejected ingredient " & To_String (Ingredient) &
                             " number " & To_String (Number));
+						Accepted := False;
                     end if;
                 end Take;
             else
                 null;
             end select;
             select
-                accept Deliver (Pizza : in Pizza_Type; Number : out Natural) do
+                accept Deliver (Pizza : in Pizza_Type; Number : out Natural; Accepted : out Boolean) do
                     if Can_Deliver (Pizza) then
                         Log ("Fridge",
                             "Delivered pizza " & To_String (Pizza) &
@@ -262,11 +271,10 @@ procedure Simulation is
                         Number           := Counters (Pizza);
                         Counters (Pizza) := Counters (Pizza) + 1;
                         Storage_Contents;
+						Accepted := True;
                     else
-                        Log ("Fridge",
-                            "Lacking ingredients for pizza " &
-                            To_String (Pizza));
                         Number := 0;
+						Accepted := False;
                     end if;
                 end Deliver;
             else
