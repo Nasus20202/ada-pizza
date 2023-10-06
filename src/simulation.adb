@@ -2,9 +2,10 @@
 -- The students should rename the tasks of Suppliers, Clients, and the Fridge
 -- Then, they should change them so that they would fit their assignments
 -- They should also complete the code with constructions that lack there
-with Ada.Text_IO; use Ada.Text_IO;
+with Ada.Text_IO;           use Ada.Text_IO;
 with Ada.Integer_Text_IO;
 with Ada.Numerics.Discrete_Random;
+with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 
 procedure Simulation is
     type Ingredient_Type is
@@ -13,10 +14,13 @@ procedure Simulation is
     type Client_Type is (Student, Professor, Dean);
     package Random_Pizza is new Ada.Numerics.Discrete_Random (Pizza_Type);
 
-	function ToString (Pizza : Pizza_Type) return String renames Pizza_Type'Image;
-	function ToString (Ingredient : Ingredient_Type) return String renames Ingredient_Type'Image;
-	function ToString (Client : Client_Type) return String renames Client_Type'Image;
-	function ToString (Number : Integer) return String renames Integer'Image;
+    function To_String (Pizza : Pizza_Type) return String renames
+       Pizza_Type'Image;
+    function To_String (Ingredient : Ingredient_Type) return String renames
+       Ingredient_Type'Image;
+    function To_String (Client : Client_Type) return String renames
+       Client_Type'Image;
+    function To_String (Number : Integer) return String renames Integer'Image;
 
     -- Supplier produces determined ingredient
     task type Supplier_Task_Type is
@@ -42,17 +46,18 @@ procedure Simulation is
     Client_Tasks   : array (Client_Type) of Client_Task_Type;
     Fridge_Task    : Fridge_Task_Type;
 
-	procedure Log(Logger : String; Message : String) is
-	Offset: String (1 .. 20 - Logger'Length) := (others => ' ');
-	begin
-        Put_Line("[" & Logger & "]" & Offset & Message);
-	end Log;
+    procedure Log (Logger : String; Message : String) is
+        Offset : String (1 .. 25 - Logger'Length) := (others => ' ');
+    begin
+        Put_Line ("[" & Logger & "]" & Offset & Message);
+    end Log;
 
     task body Supplier_Task_Type is
         subtype ingrediention_Time_Range is Positive range 4 .. 6;
         package Random_ingrediention is new Ada.Numerics.Discrete_Random
            (ingrediention_Time_Range);
-        Generator : Random_ingrediention.Generator;   --  generator liczb losowych
+        Generator           :
+           Random_ingrediention.Generator;   --  generator liczb losowych
         Produced_Ingredient : Ingredient_Type;
         Counter             : Natural;
     begin
@@ -62,14 +67,13 @@ procedure Simulation is
             Counter             := 1;
             Produced_Ingredient := Ingredient;
         end Start;
-		Log("Supplier " & ToString(Produced_Ingredient), "Started supplier");
+        Log ("Supplier " & To_String (Produced_Ingredient), "Started supplier");
         loop
             delay Duration
                (Random_ingrediention.Random (Generator)); --  symuluj produkcję
-            Log
-               ("Supplier " & ToString(Produced_Ingredient), "Produced ingredient " &
-                ToString(Produced_Ingredient) & " number " &
-                ToString (Counter));
+            Log ("Supplier " & To_String (Produced_Ingredient),
+                "Produced ingredient " & To_String (Produced_Ingredient) &
+                " number " & To_String (Counter));
             -- Accept for storage
             Fridge_Task.Take (Produced_Ingredient, Counter);
             Counter := Counter + 1;
@@ -92,7 +96,7 @@ procedure Simulation is
             Random_Pizza.Reset (Pizza_Generator);     --  też
             Client_Name := Client;
         end Start;
-        Log ("Client " & ToString (Client_Name) , "Started client");
+        Log ("Client " & To_String (Client_Name), "Started client");
         loop
             delay Duration
                (Random_Consumption.Random
@@ -101,15 +105,12 @@ procedure Simulation is
             -- take an assembly for consumption
             Fridge_Task.Deliver (Pizza, Counter);
             if Counter /= 0 then
-                Log
-                   ("Client " & ToString (Client_Name), "took pizza " &
-                    ToString (Pizza) & " number " &
-                    ToString (Counter));
+                Log ("Client " & To_String (Client_Name),
+                    "took pizza " & To_String (Pizza) & " number " &
+                    To_String (Counter));
             else
-                Log
-                   ("Client " & ToString (Client_Name),
-                    "lacking ingredients for assembly " &
-                    ToString (Pizza));
+                Log ("Client " & To_String (Client_Name),
+                    "lacking ingredients for pizza " & To_String (Pizza));
             end if;
         end loop;
     end Client_Task_Type;
@@ -181,7 +182,8 @@ procedure Simulation is
                 -- exactly this ingredient lacks
                 return True;
             end if;
-            Lacking_room := 1;                     --  insert current ingredient
+            Lacking_room :=
+               1;                     --  insert current ingredient
             for I in Ingredient_Type loop
                 Lacking (I)  :=
                    Integer'Max (0, Max_Ingredient_Content (I) - Storage (I));
@@ -207,13 +209,16 @@ procedure Simulation is
         end Can_Deliver;
 
         procedure Storage_Contents is
+            Message : Unbounded_String;
         begin
-            Put ("[Fridge]              Ingredients: [ ");
+            Append (Message, "Ingredients: [ ");
             for I in Ingredient_Type loop
-                Put (ToString (I) & ": " &
-                    ToString (Storage(I)) & " ");
+                Append
+                   (Message,
+                    To_String (I) & ": " & To_String (Storage (I)) & " ");
             end loop;
-            Put_Line ("]");
+            Append (Message, "]");
+            Log ("Fridge", To_String (Message));
         end Storage_Contents;
 
     begin
@@ -225,16 +230,16 @@ procedure Simulation is
                    (Ingredient : in Ingredient_Type; Number : in Natural)
                 do
                     if Can_Accept (Ingredient) then
-                        Log("Fridge", "Accepted ingredient " &
-                            ToString(Ingredient) & " number " &
-                            ToString(Number));
+                        Log ("Fridge",
+                            "Accepted ingredient " & To_String (Ingredient) &
+                            " number " & To_String (Number));
                         Storage (Ingredient)   := Storage (Ingredient) + 1;
                         Ingredients_In_Storage := Ingredients_In_Storage + 1;
                         Storage_Contents;
                     else
-                        Log("Fridge", "Rejected ingredient " &
-                            ToString(Ingredient) & " number " &
-                            ToString(Number));
+                        Log ("Fridge",
+                            "Rejected ingredient " & To_String (Ingredient) &
+                            " number " & To_String (Number));
                     end if;
                 end Take;
             else
@@ -243,8 +248,9 @@ procedure Simulation is
             select
                 accept Deliver (Pizza : in Pizza_Type; Number : out Natural) do
                     if Can_Deliver (Pizza) then
-                        Log("Fridge", "Delivered pizza " & ToString(Pizza) &
-                            " number " & ToString(Counters (Pizza)));
+                        Log ("Fridge",
+                            "Delivered pizza " & To_String (Pizza) &
+                            " number " & To_String (Counters (Pizza)));
                         for Ingredient in Ingredient_Type loop
                             Storage (Ingredient)   :=
                                Storage (Ingredient) -
@@ -257,8 +263,9 @@ procedure Simulation is
                         Counters (Pizza) := Counters (Pizza) + 1;
                         Storage_Contents;
                     else
-                        Log("Fridge", "Lacking ingredients for pizza " &
-                            ToString(Pizza));
+                        Log ("Fridge",
+                            "Lacking ingredients for pizza " &
+                            To_String (Pizza));
                         Number := 0;
                     end if;
                 end Deliver;
