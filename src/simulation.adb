@@ -7,168 +7,163 @@ with Ada.Integer_Text_IO;
 with Ada.Numerics.Discrete_Random;
 
 procedure Simulation is
-    Number_Of_Products   : constant Integer := 5;
-    Number_Of_Assemblies : constant Integer := 3;
-    Number_Of_Consumers  : constant Integer := 2;
-    subtype Product_Type is Integer range 1 .. Number_Of_Products;
-    subtype Assembly_Type is Integer range 1 .. Number_Of_Assemblies;
-    subtype Consumer_Type is Integer range 1 .. Number_Of_Consumers;
-    Product_Name  : constant array (Product_Type) of String (1 .. 8)  :=
-       ("Product1", "Product2", "Product3", "Product4", "Product5");
-    Assembly_Name : constant array (Assembly_Type) of String (1 .. 9) :=
-       ("Assembly1", "Assembly2", "Assembly3");
-    package Random_Assembly is new Ada.Numerics.Discrete_Random
-       (Assembly_Type);
-    type My_Str is new String (1 .. 256);
+	type Ingredient_Type is (Dough, Cheese, Ham, Mushrooms, Tomato, Salami, Onion, Pepper, Pineapple, Seafood);
+	type Pizza_Type is (Margherita, Capriciosa, Hawaii, Salami, Pepperoni, Seafood);
+	type Consumer_Type is (Student, Professor, Dean, Janitor);
+    --Number_Of_Products   : constant Integer := 5;
+    --Number_Of_Assemblies : constant Integer := 3;
+    --Number_Of_Consumers  : constant Integer := 2;
+    --subtype Product_Type is Integer range 1 .. Number_Of_Products;
+    --subtype Assembly_Type is Integer range 1 .. Number_Of_Assemblies;
+    --subtype Consumer_Type is Integer range 1 .. Number_Of_Consumers;
+    --Product_Name  : constant array (Product_Type) of String (1 .. 8)  :=
+    --   ("Product1", "Product2", "Product3", "Product4", "Product5");
+    --Assembly_Name : constant array (Assembly_Type) of String (1 .. 9) :=
+    --   ("Assembly1", "Assembly2", "Assembly3");
+    package Random_Pizza is new Ada.Numerics.Discrete_Random
+       (Pizza_Type);
+    --type My_Str is new String (1 .. 256);
 
     -- Producer produces determined product
-    task type Producer is
+    task type Producer_Task_Type is
         -- Give the Producer an identity, i.e. the product type
-        entry Start (Product : in Product_Type; Production_Time : in Integer);
-    end Producer;
+        entry Start (Ingredient : in Ingredient_Type);
+    end Producer_Task_Type;
 
     -- Consumer gets an arbitrary assembly of several products from the buffer
-    task type Consumer is
+    task type Consumer_Task_Type is
         -- Give the Consumer an identity
         entry Start
-           (Consumer_Number : in Consumer_Type; Consumption_Time : in Integer);
-    end Consumer;
+           (Consumer : in Consumer_Type);
+    end Consumer_Task_Type;
 
     -- In the Buffer, products are assemblied into an assembly
-    task type Buffer is
+    task type Buffer_Task_Type is
         -- Accept a product to the storage provided there is a room for it
-        entry Take (Product : in Product_Type; Number : in Integer);
+        entry Take (Ingredient : in Ingredient_Type; Number : in Natural);
         -- Deliver an assembly provided there are enough products for it
-        entry Deliver (Assembly : in Assembly_Type; Number : out Integer);
-    end Buffer;
+        entry Deliver (Pizza : in Pizza_Type; Number : out Natural);
+    end Buffer_Task_Type;
 
-    P : array (1 .. Number_Of_Products) of Producer;
-    K : array (1 .. Number_Of_Consumers) of Consumer;
-    B : Buffer;
+    Producer_Tasks : array (Ingredient_Type) of Producer_Task_Type;
+    Consumer_Tasks : array (Consumer_Type) of Consumer_Task_Type;
+    Buffer_Task    : Buffer_Task_Type;
 
-    task body Producer is
-        subtype Production_Time_Range is Integer range 3 .. 6;
+    task body Producer_Task_Type is
+        subtype Production_Time_Range is Positive range 3 .. 6;
         package Random_Production is new Ada.Numerics.Discrete_Random
            (Production_Time_Range);
-        G : Random_Production.Generator;   --  generator liczb losowych
-        Product_Type_Number : Integer;
-        Product_Number      : Integer;
-        Production          : Integer;
+        Generator : Random_Production.Generator;   --  generator liczb losowych
+        Produced_Ingredient	 : Ingredient_Type;
+        Counter      : Natural;
     begin
-        accept Start (Product : in Product_Type; Production_Time : in Integer)
+        accept Start (Ingredient : in Ingredient_Type)
         do
-            Random_Production.Reset (G);    --  start random number generator
-            Product_Number      := 1;
-            Product_Type_Number := Product;
-            Production          := Production_Time;
+            Random_Production.Reset (Generator);    --  start random number generator
+            Counter      := 1;
+            Produced_Ingredient   := Ingredient;
         end Start;
-        Put_Line ("Started producer of " & Product_Name (Product_Type_Number));
+        Put_Line ("Started producer of " & Ingredient_Type'Image(Produced_Ingredient));
         loop
             delay Duration
-               (Random_Production.Random (G)); --  symuluj produkcję
+               (Random_Production.Random (Generator)); --  symuluj produkcję
             Put_Line
-               ("Produced product " & Product_Name (Product_Type_Number) &
-                " number " & Integer'Image (Product_Number));
+               ("Produced product " & Ingredient_Type'Image(Produced_Ingredient) &
+                " number " & Integer'Image (Counter));
             -- Accept for storage
-            B.Take (Product_Type_Number, Product_Number);
-            Product_Number := Product_Number + 1;
+            Buffer_Task.Take (Produced_Ingredient, Counter);
+            Counter := Counter + 1;
         end loop;
-    end Producer;
+    end Producer_Task_Type;
 
-    task body Consumer is
-        subtype Consumption_Time_Range is Integer range 4 .. 8;
+    task body Consumer_Task_Type is
+        subtype Consumption_Time_Range is Positive range 4 .. 8;
         package Random_Consumption is new Ada.Numerics.Discrete_Random
            (Consumption_Time_Range);
-        G : Random_Consumption.Generator;  --  random number generator (time)
-        G2              : Random_Assembly.Generator;    --  also (assemblies)
-        Consumer_Nb     : Consumer_Type;
-        Assembly_Number : Integer;
-        Consumption     : Integer;
-        Assembly_Type   : Integer;
-        Consumer_Name   :
-           constant array (1 .. Number_Of_Consumers) of String (1 .. 9) :=
-           ("Consumer1", "Consumer2");
+        Time_Generator : Random_Consumption.Generator;  --  random number generator (time)
+        Pizza_Generator              : Random_Pizza.Generator;    --  also (assemblies)
+        Consumer_Name     : Consumer_Type;
+        Counter : Natural;
+        Pizza   : Pizza_Type;
     begin
         accept Start
-           (Consumer_Number : in Consumer_Type; Consumption_Time : in Integer)
+           (Consumer : in Consumer_Type)
         do
-            Random_Consumption.Reset (G);   --  ustaw generator
-            Random_Assembly.Reset (G2);     --  też
-            Consumer_Nb := Consumer_Number;
-            Consumption := Consumption_Time;
+            Random_Consumption.Reset (Time_Generator);   --  ustaw generator
+            Random_Pizza.Reset (Pizza_Generator);     --  też
+            Consumer_Name := Consumer;
         end Start;
-        Put_Line ("Started consumer " & Consumer_Name (Consumer_Nb));
+        Put_Line ("Started consumer " & Consumer_Type'Image(Consumer_Name));
         loop
             delay Duration
-               (Random_Consumption.Random (G)); --  simulate consumption
-            Assembly_Type := Random_Assembly.Random (G2);
+               (Random_Consumption.Random (Time_Generator)); --  simulate consumption
+            Pizza := Random_Pizza.Random (Pizza_Generator);
             -- take an assembly for consumption
-            B.Deliver (Assembly_Type, Assembly_Number);
+            Buffer_Task.Deliver (Pizza, Counter);
             Put_Line
-               (Consumer_Name (Consumer_Nb) & ": taken assembly " &
-                Assembly_Name (Assembly_Type) & " number " &
-                Integer'Image (Assembly_Number));
+               (Consumer_Type'Image(Consumer_Name) & ": taken assembly " &
+                Pizza_Type'Image(Pizza) & " number " &
+                Integer'Image (Counter));
         end loop;
-    end Consumer;
+    end Consumer_Task_Type;
 
-    task body Buffer is
-        Storage_Capacity : constant Integer := 30;
-        type Storage_type is array (Product_Type) of Integer;
-        Storage              : Storage_type := (0, 0, 0, 0, 0);
-        Assembly_Content : array (Assembly_Type, Product_Type) of Integer :=
-           ((2, 1, 2, 1, 2), (2, 2, 0, 1, 0), (1, 1, 2, 0, 1));
-        Max_Assembly_Content : array (Product_Type) of Integer;
-        Assembly_Number      : array (Assembly_Type) of Integer := (1, 1, 1);
-        In_Storage           : Integer := 0;
+    task body Buffer_Task_Type is
+        Storage_Capacity : constant Positive := 30;
+        type Storage_type is array (Ingredient_Type) of Natural;
+        Storage              : Storage_type := (others => 0);
+        Pizza_Recipes : array (Pizza_Type, Ingredient_Type) of Natural :=
+           ((1, 2, 0, 0, 0, 0, 0, 0, 0, 0), (1, 1, 1, 1, 0, 0, 0, 0, 0, 0),
+			(1, 1, 1, 1, 1, 1, 1, 1, 1, 1), (1, 1, 1, 1, 0, 0, 0, 0, 0, 0),
+			(1, 1, 1, 1, 0, 0, 0, 0, 0, 0), (1, 1, 1, 1, 1, 1, 1, 1, 1, 1));
+        Max_Ingredient_Content : array (Ingredient_Type) of Natural;
+        Counters      : array (Pizza_Type) of Natural := (others => 0);
+        Ingredients_In_Storage           : Natural := 0;
 
         procedure Setup_Variables is
         begin
-            for W in Product_Type loop
-                Max_Assembly_Content (W) := 0;
-                for Z in Assembly_Type loop
-                    if Assembly_Content (Z, W) > Max_Assembly_Content (W) then
-                        Max_Assembly_Content (W) := Assembly_Content (Z, W);
+            for Ingredient in Ingredient_Type loop
+                Max_Ingredient_Content (Ingredient) := 0;
+                for Pizza in Pizza_Type loop
+                    if Pizza_Recipes (Pizza, Ingredient) > Max_Ingredient_Content (Ingredient) then
+                        Max_Ingredient_Content (Ingredient) := Pizza_Recipes (Pizza, Ingredient);
                     end if;
                 end loop;
             end loop;
         end Setup_Variables;
 
-        function Can_Accept (Product : Product_Type) return Boolean is
-            Free         : Integer;         --  free room in the storage
+        function Can_Accept (Ingredient : Ingredient_Type) return Boolean is
+            Free         : Natural;         --  free room in the storage
             -- how many products are for production of arbitrary assembly
-            Lacking      : array (Product_Type) of Integer;
+            Lacking      : array (Ingredient_Type) of Natural;
             -- how much room is needed in storage to produce arbitrary assembly
-            Lacking_room : Integer;
-            MP           : Boolean;                   --  can accept
+            Lacking_room : Natural;
+            Result           : Boolean;                   --  can accept
         begin
-            if In_Storage >= Storage_Capacity then
+            if Ingredients_In_Storage >= Storage_Capacity then
                 return False;
             end if;
             -- There is free room in the storage
-            Free := Storage_Capacity - In_Storage;
-            MP   := True;
-            for W in Product_Type loop
-                if Storage (W) < Max_Assembly_Content (W) then
-                    MP := False;
+            Free := Storage_Capacity - Ingredients_In_Storage;
+            Result   := True;
+            for I in Ingredient_Type loop
+                if Storage (I) < Max_Ingredient_Content (I) then
+                    Result := False;
                 end if;
             end loop;
-            if MP then
-                return
-                   True;                --  storage has products for arbitrary
+            if Result then
+                return True;                --  storage has products for arbitrary
                 --  assembly
             end if;
-            if Integer'Max
-                  (0, Max_Assembly_Content (Product) - Storage (Product)) >
-               0
+            if Integer'Max (0, Max_Ingredient_Content (Ingredient) - Storage (Ingredient)) > 0
             then
                 -- exactly this product lacks
                 return True;
             end if;
             Lacking_room := 1;                     --  insert current product
-            for W in Product_Type loop
-                Lacking (W)  :=
-                   Integer'Max (0, Max_Assembly_Content (W) - Storage (W));
-                Lacking_room := Lacking_room + Lacking (W);
+            for I in Ingredient_Type loop
+                Lacking (I)  :=
+                   Integer'Max (0, Max_Ingredient_Content (I) - Storage (I));
+                Lacking_room := Lacking_room + Lacking (I);
             end loop;
             if Free >= Lacking_room then
                 -- there is enough room in storage for arbitrary assembly
@@ -179,10 +174,10 @@ procedure Simulation is
             end if;
         end Can_Accept;
 
-        function Can_Deliver (Assembly : Assembly_Type) return Boolean is
+        function Can_Deliver (Pizza : Pizza_Type) return Boolean is
         begin
-            for W in Product_Type loop
-                if Storage (W) < Assembly_Content (Assembly, W) then
+            for I in Ingredient_Type loop
+                if Storage (I) < Pizza_Recipes (Pizza, I) then
                     return False;
                 end if;
             end loop;
@@ -191,10 +186,10 @@ procedure Simulation is
 
         procedure Storage_Contents is
         begin
-            for W in Product_Type loop
+            for I in Ingredient_Type loop
                 Put_Line
-                   ("Storage contents: " & Integer'Image (Storage (W)) & " " &
-                    Product_Name (W));
+                   ("Storage contents: " & Integer'Image (Storage (I)) & " " &
+                    Ingredient_Type'Image(I));
             end loop;
         end Storage_Contents;
 
@@ -202,52 +197,53 @@ procedure Simulation is
         Put_Line ("Buffer started");
         Setup_Variables;
         loop
-            accept Take (Product : in Product_Type; Number : in Integer) do
-                if Can_Accept (Product) then
+            accept Take (Ingredient : in Ingredient_Type; Number : in Natural) do
+                if Can_Accept (Ingredient) then
                     Put_Line
-                       ("Accepted product " & Product_Name (Product) &
+                       ("Accepted product " & Ingredient_Type'Image(Ingredient) &
                         " number " & Integer'Image (Number));
-                    Storage (Product) := Storage (Product) + 1;
-                    In_Storage        := In_Storage + 1;
+                    Storage (Ingredient) := Storage (Ingredient) + 1;
+                    Ingredients_In_Storage        := Ingredients_In_Storage + 1;
                 else
                     Put_Line
-                       ("Rejected product " & Product_Name (Product) &
+                       ("Rejected product " & Ingredient_Type'Image(Ingredient) &
                         " number " & Integer'Image (Number));
                 end if;
             end Take;
             Storage_Contents;
-            accept Deliver (Assembly : in Assembly_Type; Number : out Integer)
+            accept Deliver (Pizza : in Pizza_Type; Number : out Natural)
             do
-                if Can_Deliver (Assembly) then
+                if Can_Deliver (Pizza) then
                     Put_Line
-                       ("Delivered assembly " & Assembly_Name (Assembly) &
+                       ("Delivered assembly " & Pizza_Type'Image (Pizza) &
                         " number " &
-                        Integer'Image (Assembly_Number (Assembly)));
-                    for W in Product_Type loop
-                        Storage (W) :=
-                           Storage (W) - Assembly_Content (Assembly, W);
-                        In_Storage  :=
-                           In_Storage - Assembly_Content (Assembly, W);
+                        Integer'Image (Counters (Pizza)));
+                    for Ingredient in Ingredient_Type loop
+                        Storage (Ingredient) :=
+                           Storage (Ingredient) - Pizza_Recipes (Pizza, Ingredient);
+                        Ingredients_In_Storage  :=
+                           Ingredients_In_Storage - Pizza_Recipes (Pizza, Ingredient);
                     end loop;
-                    Number                     := Assembly_Number (Assembly);
-                    Assembly_Number (Assembly) :=
-                       Assembly_Number (Assembly) + 1;
+                    Number                     := Counters (Pizza);
+                    Counters (Pizza) :=
+                       Counters (Pizza) + 1;
                 else
                     Put_Line
                        ("Lacking products for assembly " &
-                        Assembly_Name (Assembly));
+                        Pizza_Type'Image(Pizza));
                     Number := 0;
+					Put_Line ("Waiting for products");
                 end if;
             end Deliver;
             Storage_Contents;
         end loop;
-    end Buffer;
+    end Buffer_Task_Type;
 
 begin
-    for I in 1 .. Number_Of_Products loop
-        P (I).Start (I, 10);
+    for Ingredient in Ingredient_Type loop
+        Producer_Tasks (Ingredient).Start (Ingredient);
     end loop;
-    for J in 1 .. Number_Of_Consumers loop
-        K (J).Start (J, 12);
+    for Consumer in Consumer_Type loop
+        Consumer_Tasks (Consumer).Start (Consumer);
     end loop;
 end Simulation;
