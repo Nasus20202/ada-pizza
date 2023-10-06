@@ -84,7 +84,7 @@ procedure Simulation is
                        (Produced_Ingredient, Counter, Accepted);
                 else
                     Log ("Supplier " & To_String (Produced_Ingredient),
-                        "Fridge is busy, waiting seconds");
+                        "Fridge is busy, waiting...");
                 end select;
                 if not Accepted then
                     delay Duration (Retry_Delay);
