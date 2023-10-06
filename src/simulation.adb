@@ -53,18 +53,18 @@ procedure Simulation is
     end Log;
 
     task body Supplier_Task_Type is
-        subtype ingrediention_Time_Range is Float range 4 .. 6;
-        package Random_ingrediention is new Ada.Numerics.Discrete_Random
-           (ingrediention_Time_Range);
+        subtype Delay_Time_Range is Integer range 4 .. 6;
+        package Random_Delay is new Ada.Numerics.Discrete_Random
+           (Delay_Time_Range);
         Generator           :
-           Random_ingrediention.Generator;   --  generator liczb losowych
+           Random_Delay.Generator;   --  generator liczb losowych
         Produced_Ingredient : Ingredient_Type;
         Counter             : Natural;
 		Accepted			: Boolean := False;
-		Retry_Delay			: constant := 1.0;
+		Retry_Delay			: Float := 1.0;
     begin
         accept Start (Ingredient : in Ingredient_Type) do
-            Random_ingrediention.Reset
+            Random_Delay.Reset
                (Generator);    --  start random number generator
             Counter             := 1;
             Produced_Ingredient := Ingredient;
@@ -72,14 +72,14 @@ procedure Simulation is
         Log ("Supplier " & To_String (Produced_Ingredient), "Started supplier");
         loop
             delay Duration
-               (Random_ingrediention.Random (Generator)); --  symuluj produkcję
+               (Random_Delay.Random (Generator)); --  symuluj produkcję
             Log ("Supplier " & To_String (Produced_Ingredient),
                 "Produced ingredient " & To_String (Produced_Ingredient) &
                 " number " & To_String (Counter));
             -- Accept for storage
 			while not Accepted loop
             	Fridge_Task.Take (Produced_Ingredient, Counter, Accepted);
-				delay Retry_Delay;
+				delay Duration(Retry_Delay);
 			end loop;
             Counter := Counter + 1;
 			Accepted := False;
