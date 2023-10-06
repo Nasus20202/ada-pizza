@@ -45,10 +45,14 @@ procedure Simulation is
     Client_Tasks   : array (Client_Type) of Client_Task_Type;
     Fridge_Task    : Fridge_Task_Type;
 
-    procedure Log (Logger : String; Message : String) is
+    procedure Log (Logger : String; Message : String; Highlight: Boolean := False) is
         Offset : String (1 .. 25 - Logger'Length) := (others => ' ');
     begin
-        Put_Line ("[" & Logger & "]" & Offset & Message);
+		if Highlight then
+			Put_Line (ASCII.ESC & "[93m[" & Logger & "]" & Offset & Message & ASCII.ESC & "[0m");
+		else
+			Put_Line ("[" & Logger & "]" & Offset & Message);
+		end if;
     end Log;
 
     task body Supplier_Task_Type is
@@ -116,7 +120,7 @@ procedure Simulation is
             if Accepted then
                 Log ("Client " & To_String (Client_Name),
                     "Received pizza " & To_String (Pizza) & " number " &
-                    To_String (Counter));
+                    To_String (Counter), Highlight => True);
             else
                 Log ("Client " & To_String (Client_Name),
                     "Can't buy " & To_String (Pizza));
