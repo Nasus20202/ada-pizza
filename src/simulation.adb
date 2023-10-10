@@ -1,3 +1,7 @@
+-- Symulator pizzerii
+-- Autorzy:
+-- Krzysztof Nasuta, 193328
+-- Filip Dawidowski, 193433
 with Ada.Text_IO;           use Ada.Text_IO;
 with Ada.Integer_Text_IO;
 with Ada.Numerics.Discrete_Random;
