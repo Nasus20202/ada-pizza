@@ -7,7 +7,7 @@ procedure Simulation is
     type Ingredient_Type is
        (Dough, Cheese, Ham, Mushrooms, Tomato, Pepper, Pineapple);
     type Pizza_Type is
-       (Margherita, Capriciosa, Hawaii, Pepperoni, Vegetariana, Cheesy);
+       (Margherita, Capriciosa, Hawaii, Pepperoni, Vegetariana);
     type Client_Type is (Student, Professor, Dean);
     package Random_Pizza is new Ada.Numerics.Discrete_Random (Pizza_Type);
 
@@ -144,8 +144,7 @@ procedure Simulation is
                (Dough => 1, Cheese => 1, Pepper => 3, Ham => 1, others => 0),
             Vegetariana =>
                (Dough  => 1, Cheese => 1, Mushrooms => 2, Tomato => 2,
-                others => 0),
-            Cheesy      => (Dough => 1, Cheese => 3, others => 0));
+                others => 0));
         Max_Ingredient_Content : array (Ingredient_Type) of Natural;
         Counters : array (Pizza_Type) of Natural := (others => 1);
         Ingredients_In_Storage : Natural := 0;
